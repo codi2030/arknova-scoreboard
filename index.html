@@ -14,109 +14,103 @@
 <link rel="icon" href="icon-180.png">
 <style>
   :root{
-    --bg:#0e2722;
-    --panel:#123a31;
-    --panel2:#0f322a;
-    --line:#1f5546;
-    --txt:#eaf6f1;
-    --muted:#9fc7ba;
-    --p1:#e8842b;       /* 플레이어1 (주황) */
-    --p2:#28c0c9;       /* 플레이어2 (청록) */
-    --plus:#2f9e54;
-    --minus:#c0463f;
+    --bg:#0e2722; --panel:#123a31; --panel2:#0f322a;
+    --line:#1f5546; --txt:#eaf6f1; --muted:#9fc7ba;
+    --p1:#e8842b; --p2:#28c0c9; --minus:#c0463f;
   }
   *{box-sizing:border-box; -webkit-tap-highlight-color:transparent;}
   html,body{margin:0; height:100%;}
   body{
     background:var(--bg); color:var(--txt);
     font-family:"Malgun Gothic","맑은 고딕","Apple SD Gothic Neo",sans-serif;
-    display:flex; flex-direction:column; height:100vh; overflow:hidden;
+    display:flex; flex-direction:column;
+    height:100vh; height:100dvh; overflow:hidden;
   }
 
   header{
-    display:flex; align-items:center; justify-content:center; gap:16px;
-    padding:calc(6px + env(safe-area-inset-top)) 16px 6px; background:linear-gradient(#15463a,#0e2c25);
+    display:flex; align-items:center; justify-content:center; gap:14px;
+    padding:calc(4px + env(safe-area-inset-top)) 14px 4px;
+    background:linear-gradient(#15463a,#0e2c25);
     border-bottom:2px solid var(--line); position:relative; flex:none;
   }
-  header h1{font-size:20px; margin:0; letter-spacing:1px;}
-  header .tools{position:absolute; right:14px; top:50%; transform:translateY(-50%); display:flex; gap:8px;}
+  header h1{font-size:17px; margin:0; letter-spacing:.5px;}
+  header .tools{position:absolute; right:12px; top:50%; transform:translateY(-50%); display:flex; gap:6px;}
   header button{
     background:#1c4f42; color:var(--txt); border:1px solid var(--line);
-    padding:7px 13px; border-radius:8px; cursor:pointer; font-size:14px;
+    padding:6px 11px; border-radius:8px; cursor:pointer; font-size:13px;
   }
   header button:hover{background:#256356;}
   header button.on{background:var(--p1); border-color:var(--p1); color:#1a1208; font-weight:700;}
 
   .board{flex:1; display:flex; min-height:0;}
   .col{
-    flex:1 1 50%; padding:10px 14px 14px; display:flex; flex-direction:column;
-    min-width:0; min-height:0; overflow:auto;
+    flex:1 1 50%; min-width:0; min-height:0; position:relative; overflow:hidden;
+    padding:8px 12px;
   }
-  .col.p1{background:var(--panel); padding-left:calc(14px + env(safe-area-inset-left));}
-  .col.p2{background:var(--panel2); border-left:3px solid var(--line); padding-right:calc(14px + env(safe-area-inset-right));}
+  .col.p1{background:var(--panel); padding-left:calc(12px + env(safe-area-inset-left));}
+  .col.p2{background:var(--panel2); border-left:3px solid var(--line); padding-right:calc(12px + env(safe-area-inset-right));}
+  /* 화면 높이에 맞춰 통째로 확대/축소되는 래퍼 */
+  .fit{transform-origin:top left; width:100%;}
 
-  .name-row{display:flex; align-items:center; gap:12px; margin-bottom:8px; flex:none;}
-  .accent{width:12px; height:40px; border-radius:4px; flex:none;}
+  .name-row{display:flex; align-items:center; gap:10px; margin-bottom:6px;}
+  .accent{width:10px; height:34px; border-radius:4px; flex:none;}
   .p1 .accent{background:var(--p1);} .p2 .accent{background:var(--p2);}
   .pname{
-    font-size:24px; font-weight:700; flex:1; background:transparent;
+    font-size:22px; font-weight:700; flex:1; background:transparent;
     border:none; border-bottom:2px dashed transparent; color:var(--txt);
     outline:none; padding:2px 4px; min-width:0;
   }
   .pname:focus{border-bottom-color:var(--muted);}
-  .grand{font-size:13px; color:var(--muted); text-align:right; white-space:nowrap; line-height:1.1;}
-  .grand b{font-size:34px; display:block; line-height:1;}
+  .grand{font-size:12px; color:var(--muted); text-align:right; white-space:nowrap; line-height:1;}
+  .grand b{font-size:30px; display:block; line-height:1;}
   .p1 .grand b{color:var(--p1);} .p2 .grand b{color:var(--p2);}
 
   .section{
     background:rgba(255,255,255,.03); border:1px solid var(--line);
-    border-radius:12px; padding:8px 10px; margin-bottom:10px;
+    border-radius:11px; padding:7px 9px; margin-bottom:8px;
   }
-  .sec-head{display:flex; align-items:center; justify-content:space-between; margin-bottom:6px;}
-  .sec-title{font-size:14px; font-weight:700; color:var(--muted); letter-spacing:.4px;}
-  .sec-sum{font-size:13px; color:var(--muted);}
-  .sec-sum b{color:var(--txt); font-size:17px;}
+  .sec-head{display:flex; align-items:center; justify-content:space-between; margin-bottom:5px;}
+  .sec-title{font-size:13px; font-weight:700; color:var(--muted); letter-spacing:.3px;}
+  .sec-sum{font-size:12px; color:var(--muted);}
+  .sec-sum b{color:var(--txt); font-size:16px;}
 
-  .grid{display:grid; grid-template-columns:repeat(auto-fill,minmax(150px,1fr)); gap:7px;}
+  .grid{display:grid; grid-template-columns:repeat(3,1fr); gap:6px;}
 
-  /* 플레이 모드: 타일 전체가 +1 버튼 */
   .mark{
-    position:relative; display:flex; align-items:center; gap:8px;
+    position:relative; display:flex; align-items:center; gap:6px;
     background:rgba(0,0,0,.22); border:1px solid var(--line);
-    border-radius:10px; padding:9px 12px; cursor:pointer; user-select:none;
-    text-align:left; color:var(--txt); font-size:17px; min-width:0;
+    border-radius:9px; padding:7px 9px; cursor:pointer; user-select:none;
+    text-align:left; color:var(--txt); font-size:16px; min-width:0; line-height:1.1;
   }
-  .mark:active{transform:scale(.96);}
+  .mark:active{transform:scale(.95);}
   .mark .mlabel{flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;}
   .mark .mcount{
-    font-size:26px; font-weight:800; min-width:30px; text-align:right;
+    font-size:24px; font-weight:800; min-width:26px; text-align:right;
     font-variant-numeric:tabular-nums; transition:transform .12s;
   }
   .p1 .mark .mcount{color:var(--p1);} .p2 .mark .mcount{color:var(--p2);}
-  .mark.bump .mcount{transform:scale(1.45);}
+  .mark.bump .mcount{transform:scale(1.5);}
+  .mark.zero .mcount{color:var(--muted)!important; opacity:.4;}
   .mark .minus{
-    position:absolute; top:-7px; right:-7px; width:24px; height:24px;
+    position:absolute; top:-7px; right:-7px; width:22px; height:22px;
     border-radius:50%; background:var(--minus); color:#fff; border:2px solid var(--bg);
-    font-size:16px; line-height:1; display:none; align-items:center; justify-content:center;
-    cursor:pointer;
+    font-size:14px; line-height:1; display:none; align-items:center; justify-content:center; cursor:pointer;
   }
   .mark:hover .minus{display:flex;}
-  .mark.zero .mcount{color:var(--muted)!important; opacity:.45;}
 
-  /* 편집 모드 */
   body.edit .mark{cursor:default;}
   body.edit .mark:active{transform:none;}
   body.edit .mark .minus{display:none;}
-  .ilabel-edit{flex:1; min-width:0; font-size:16px; padding:3px 5px; border-radius:6px;
+  .ilabel-edit{flex:1; min-width:0; font-size:14px; padding:3px 5px; border-radius:6px;
     outline:none; border:1px solid var(--muted); background:rgba(0,0,0,.25); color:var(--txt);}
-  .del{background:transparent; border:none; color:var(--minus); font-size:17px; cursor:pointer; flex:none;}
+  .del{background:transparent; border:none; color:var(--minus); font-size:15px; cursor:pointer; flex:none;}
   .add{
     grid-column:1/-1; background:transparent; color:var(--muted);
-    border:1px dashed var(--line); border-radius:8px; padding:7px; cursor:pointer; font-size:13px;
+    border:1px dashed var(--line); border-radius:8px; padding:6px; cursor:pointer; font-size:12px;
   }
   .add:hover{background:rgba(255,255,255,.04); color:var(--txt);}
 
-  .hint{text-align:center; color:var(--muted); font-size:12px; padding:4px; flex:none;}
+  .hint{text-align:center; color:var(--muted); font-size:11px; padding:3px; flex:none; line-height:1.2;}
 </style>
 </head>
 <body>
@@ -129,7 +123,7 @@
 </header>
 
 <div class="board" id="board"></div>
-<div class="hint" id="hint">마크를 터치하면 +1 · 우측 상단 ✎ 편집에서 이름 수정·추가·삭제</div>
+<div class="hint" id="hint">마크를 터치하면 +1 · 화면 높이에 맞춰 자동으로 한 화면에 표시됩니다</div>
 
 <script>
 const STORAGE_KEY = "arknova_scoreboard_v2";
@@ -163,6 +157,8 @@ function render(){
   state.players.forEach((p, pi)=>{
     const col = document.createElement("div");
     col.className = "col " + (pi===0 ? "p1" : "p2");
+    const fit = document.createElement("div");
+    fit.className = "fit";
 
     const grand = p.sections.reduce((s,sec)=> s + sec.items.reduce((a,i)=>a+i.count,0), 0);
 
@@ -171,7 +167,7 @@ function render(){
     nameRow.innerHTML = `<div class="accent"></div>
       <input class="pname" value="${escAttr(p.name)}">
       <div class="grand">총 마크<b>${grand}</b></div>`;
-    col.appendChild(nameRow);
+    fit.appendChild(nameRow);
     nameRow.querySelector(".pname").addEventListener("change", e=>{ state.players[pi].name = e.target.value; save(); });
 
     p.sections.forEach((sec, si)=>{
@@ -202,9 +198,9 @@ function render(){
           const lab = document.createElement("span"); lab.className="mlabel"; lab.textContent = it.label;
           const cnt = document.createElement("span"); cnt.className="mcount"; cnt.textContent = it.count;
           const minus = document.createElement("span"); minus.className="minus"; minus.textContent="−";
-          minus.onclick = (e)=>{ e.stopPropagation(); changeCount(pi,si,ii,-1,mark); };
+          minus.onclick = (e)=>{ e.stopPropagation(); changeCount(pi,si,ii,-1); };
           mark.append(lab, cnt, minus);
-          mark.onclick = ()=> changeCount(pi,si,ii,1,mark);
+          mark.onclick = ()=> changeCount(pi,si,ii,1);
         }
         grid.appendChild(mark);
       });
@@ -217,19 +213,37 @@ function render(){
       }
 
       secEl.appendChild(grid);
-      col.appendChild(secEl);
+      fit.appendChild(secEl);
     });
 
+    col.appendChild(fit);
     board.appendChild(col);
+  });
+  fitColumns();
+}
+
+// 각 플레이어 칸을 세로 높이에 맞춰 통째로 확대/축소 → 항상 한 화면에
+function fitColumns(){
+  document.querySelectorAll(".col").forEach(col=>{
+    const fit = col.querySelector(".fit");
+    if(!fit) return;
+    fit.style.transform = "none";
+    fit.style.width = "100%";
+    const avail = col.clientHeight;
+    const natural = fit.scrollHeight;
+    if(!natural) return;
+    let s = (avail / natural) * 0.99;
+    s = Math.max(0.2, Math.min(s, 4));
+    fit.style.width = (100 / s) + "%";
+    fit.style.transform = "scale(" + s + ")";
   });
 }
 
-function changeCount(pi,si,ii,delta,markEl){
+function changeCount(pi,si,ii,delta){
   const it = state.players[pi].sections[si].items[ii];
   it.count = Math.max(0, it.count + delta);
   save();
   render();
-  // 방금 누른 마크만 잠깐 반짝이게 (render로 노드가 새로 생기므로 다시 찾아 적용)
   if(delta>0){
     const el = document.querySelector('.mark[data-key="'+pi+'-'+si+'-'+ii+'"]');
     if(el){ el.classList.add("bump"); setTimeout(()=>el.classList.remove("bump"), 130); }
@@ -241,8 +255,8 @@ function toggleEdit(){
   document.body.classList.toggle("edit", editMode);
   document.getElementById("editBtn").classList.toggle("on", editMode);
   document.getElementById("hint").textContent = editMode
-    ? "편집 모드: 이름을 수정하고 ✕ 삭제 / ＋ 항목 추가 · 끝나면 ✎ 편집을 다시 눌러 종료"
-    : "마크를 터치하면 +1 · 우측 상단 ✎ 편집에서 이름 수정·추가·삭제";
+    ? "편집 모드: 이름 수정 / ✕ 삭제 / ＋ 항목 추가 · 끝나면 ✎ 편집 다시 누르기"
+    : "마크를 터치하면 +1 · 화면 높이에 맞춰 자동으로 한 화면에 표시됩니다";
   render();
 }
 
@@ -255,6 +269,8 @@ function resetAll(){
 function escHtml(s){ return (s+"").replace(/[&<>]/g, c=>({"&":"&amp;","<":"&lt;",">":"&gt;"}[c])); }
 function escAttr(s){ return (s+"").replace(/"/g,"&quot;"); }
 
+window.addEventListener("resize", fitColumns);
+window.addEventListener("orientationchange", ()=> setTimeout(fitColumns, 300));
 render();
 </script>
 </body>
