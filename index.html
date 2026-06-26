@@ -49,7 +49,6 @@
   }
   .col.p1{background:var(--panel); padding-left:calc(12px + env(safe-area-inset-left));}
   .col.p2{background:var(--panel2); border-left:3px solid var(--line); padding-right:calc(12px + env(safe-area-inset-right));}
-  /* 화면 높이에 맞춰 통째로 확대/축소되는 래퍼 */
   .fit{transform-origin:top left; width:100%;}
 
   .name-row{display:flex; align-items:center; gap:10px; margin-bottom:6px;}
@@ -74,23 +73,30 @@
   .sec-sum{font-size:12px; color:var(--muted);}
   .sec-sum b{color:var(--txt); font-size:16px;}
 
-  .grid{display:grid; grid-template-columns:repeat(3,1fr); gap:6px;}
+  .grid{display:grid; grid-template-columns:repeat(5,1fr); gap:6px;}
 
+  /* 아이콘 위주 마크 타일 */
   .mark{
-    position:relative; display:flex; align-items:center; gap:6px;
-    background:rgba(0,0,0,.22); border:1px solid var(--line);
-    border-radius:9px; padding:7px 9px; cursor:pointer; user-select:none;
-    text-align:left; color:var(--txt); font-size:16px; min-width:0; line-height:1.1;
+    position:relative; display:flex; align-items:center; gap:5px;
+    background:#0b1f1a; border:1px solid var(--line);
+    border-radius:11px; padding:5px 7px; cursor:pointer; user-select:none;
+    color:var(--txt); min-width:0; line-height:1;
   }
-  .mark:active{transform:scale(.95);}
-  .mark .mlabel{flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;}
-  .mark .mcount{
-    font-size:24px; font-weight:800; min-width:26px; text-align:right;
+  .mark:active{transform:scale(.94);}
+  .badge{
+    width:32px; height:32px; border-radius:50%; flex:none;
+    display:flex; align-items:center; justify-content:center;
+    font-size:18px; color:#fff; font-weight:700;
+    box-shadow:inset 0 0 0 2px rgba(255,255,255,.18), 0 1px 2px rgba(0,0,0,.4);
+  }
+  .badge.code{font-size:12px; letter-spacing:-.5px;}
+  .mcount{
+    flex:1; text-align:right; font-size:24px; font-weight:800; padding-right:2px;
     font-variant-numeric:tabular-nums; transition:transform .12s;
   }
-  .p1 .mark .mcount{color:var(--p1);} .p2 .mark .mcount{color:var(--p2);}
+  .p1 .mcount{color:var(--p1);} .p2 .mcount{color:var(--p2);}
   .mark.bump .mcount{transform:scale(1.5);}
-  .mark.zero .mcount{color:var(--muted)!important; opacity:.4;}
+  .mark.zero .mcount{color:var(--muted); opacity:.4;}
   .mark .minus{
     position:absolute; top:-7px; right:-7px; width:22px; height:22px;
     border-radius:50%; background:var(--minus); color:#fff; border:2px solid var(--bg);
@@ -98,10 +104,14 @@
   }
   .mark:hover .minus{display:flex;}
 
-  body.edit .mark{cursor:default;}
+  /* 편집 모드 */
+  body.edit .grid{grid-template-columns:repeat(3,1fr);}
+  body.edit .mark{cursor:default; gap:4px;}
   body.edit .mark:active{transform:none;}
   body.edit .mark .minus{display:none;}
-  .ilabel-edit{flex:1; min-width:0; font-size:14px; padding:3px 5px; border-radius:6px;
+  .icon-edit{width:38px; flex:none; font-size:14px; text-align:center; padding:3px 2px;
+    border-radius:6px; outline:none; border:1px solid var(--muted); background:rgba(0,0,0,.25); color:var(--txt);}
+  .ilabel-edit{flex:1; min-width:0; font-size:13px; padding:3px 5px; border-radius:6px;
     outline:none; border:1px solid var(--muted); background:rgba(0,0,0,.25); color:var(--txt);}
   .del{background:transparent; border:none; color:var(--minus); font-size:15px; cursor:pointer; flex:none;}
   .add{
@@ -123,33 +133,67 @@
 </header>
 
 <div class="board" id="board"></div>
-<div class="hint" id="hint">마크를 터치하면 +1 · 화면 높이에 맞춰 자동으로 한 화면에 표시됩니다</div>
+<div class="hint" id="hint">아이콘을 터치하면 +1 · 편집 모드에서 아이콘·이름 수정 가능</div>
 
 <script>
-const STORAGE_KEY = "arknova_scoreboard_v2";
+const KEY = "arknova_scoreboard_v3";
+const OLD_KEY = "arknova_scoreboard_v2";
 let editMode = false;
 
 function defaultPlayer(name){
   return { name, sections:[
     { title:"🌍 대륙 마크", items:[
-      {label:"🌍 아프리카",count:0},{label:"🌐 유럽",count:0},{label:"🌏 아시아",count:0},
-      {label:"🦘 오세아니아",count:0},{label:"🌎 아메리카",count:0},
+      {icon:"AF", code:true, label:"아프리카",   color:"#e0922e", count:0},
+      {icon:"EU", code:true, label:"유럽",       color:"#4a78c9", count:0},
+      {icon:"AS", code:true, label:"아시아",     color:"#c0463f", count:0},
+      {icon:"OC", code:true, label:"오세아니아", color:"#2fa39a", count:0},
+      {icon:"AM", code:true, label:"아메리카",   color:"#7b5cd6", count:0},
     ]},
     { title:"🐾 동물 종류 마크", items:[
-      {label:"🐦 조류",count:0},{label:"🦎 파충류",count:0},{label:"🐸 양서류",count:0},
-      {label:"🐟 어류",count:0},{label:"🦋 무척추동물",count:0},{label:"🐻 곰",count:0},
-      {label:"🐵 영장류",count:0},{label:"🦁 맹수",count:0},{label:"🦌 초식동물",count:0},
+      {icon:"🐦", label:"조류",     color:"#4aa3d9", count:0},
+      {icon:"🦎", label:"파충류",   color:"#4f9e57", count:0},
+      {icon:"🐸", label:"양서류",   color:"#7bb33a", count:0},
+      {icon:"🐟", label:"어류",     color:"#3f9ec0", count:0},
+      {icon:"🦋", label:"무척추동물", color:"#c77fd0", count:0},
+      {icon:"🐻", label:"곰",       color:"#9c6b3f", count:0},
+      {icon:"🐵", label:"영장류",   color:"#d99a3a", count:0},
+      {icon:"🦁", label:"맹수",     color:"#d96f3a", count:0},
+      {icon:"🦌", label:"초식동물", color:"#b08a55", count:0},
     ]},
     { title:"🔬 기타 특수 마크 & 지형", items:[
-      {label:"🔬 과학",count:0},{label:"💧 물 지형",count:0},{label:"🪨 바위 지형",count:0},
+      {icon:"🔬", label:"과학",     color:"#5fae8f", count:0},
+      {icon:"💧", label:"물 지형",  color:"#3f8fd0", count:0},
+      {icon:"🪨", label:"바위 지형", color:"#8a8f97", count:0},
     ]},
   ]};
 }
 
-let state = load() || { players:[ defaultPlayer("플레이어 1"), defaultPlayer("플레이어 2") ] };
+function loadKey(k){ try{ return JSON.parse(localStorage.getItem(k)); }catch(e){ return null; } }
+function save(){ localStorage.setItem(KEY, JSON.stringify(state)); }
 
-function load(){ try{ return JSON.parse(localStorage.getItem(STORAGE_KEY)); }catch(e){ return null; } }
-function save(){ localStorage.setItem(STORAGE_KEY, JSON.stringify(state)); }
+// v3 우선, 없으면 v2 점수를 위치 기준으로 이관
+function init(){
+  const cur = loadKey(KEY);
+  if(cur && cur.players) return cur;
+  const fresh = { players:[ defaultPlayer("플레이어 1"), defaultPlayer("플레이어 2") ] };
+  const old = loadKey(OLD_KEY);
+  if(old && old.players){
+    fresh.players.forEach((p,pi)=>{
+      const op = old.players[pi]; if(!op) return;
+      if(op.name) p.name = op.name;
+      p.sections.forEach((sec,si)=>{
+        const os = op.sections && op.sections[si]; if(!os) return;
+        sec.items.forEach((it,ii)=>{
+          const oi = os.items && os.items[ii];
+          if(oi && typeof oi.count === "number") it.count = oi.count;
+        });
+      });
+    });
+  }
+  return fresh;
+}
+
+let state = init();
 
 function render(){
   const board = document.getElementById("board");
@@ -185,21 +229,31 @@ function render(){
         const mark = document.createElement(editMode ? "div" : "button");
         mark.className = "mark" + (it.count===0 ? " zero" : "");
         mark.dataset.key = pi+"-"+si+"-"+ii;
+        mark.title = it.label || "";
 
         if(editMode){
+          const ic = document.createElement("input");
+          ic.className = "icon-edit"; ic.value = it.icon; ic.maxLength = 4;
+          ic.addEventListener("change", ()=>{
+            const v = it.icon = ic.value.trim() || "?";
+            it.code = /^[A-Za-z0-9]{1,4}$/.test(v); save();
+          });
           const inp = document.createElement("input");
-          inp.className = "ilabel-edit"; inp.value = it.label;
-          inp.addEventListener("change", ()=>{ state.players[pi].sections[si].items[ii].label = inp.value.trim()||"(이름)"; save(); });
+          inp.className = "ilabel-edit"; inp.value = it.label || "";
+          inp.addEventListener("change", ()=>{ it.label = inp.value.trim() || "(이름)"; save(); });
           const del = document.createElement("button");
           del.className = "del"; del.textContent = "✕"; del.title = "삭제";
-          del.onclick = ()=>{ state.players[pi].sections[si].items.splice(ii,1); save(); render(); };
-          mark.append(inp, del);
+          del.onclick = ()=>{ sec.items.splice(ii,1); save(); render(); };
+          mark.append(ic, inp, del);
         } else {
-          const lab = document.createElement("span"); lab.className="mlabel"; lab.textContent = it.label;
+          const badge = document.createElement("span");
+          badge.className = "badge" + (it.code ? " code" : "");
+          badge.style.background = it.color || "#3a6b5e";
+          badge.textContent = it.icon;
           const cnt = document.createElement("span"); cnt.className="mcount"; cnt.textContent = it.count;
           const minus = document.createElement("span"); minus.className="minus"; minus.textContent="−";
           minus.onclick = (e)=>{ e.stopPropagation(); changeCount(pi,si,ii,-1); };
-          mark.append(lab, cnt, minus);
+          mark.append(badge, cnt, minus);
           mark.onclick = ()=> changeCount(pi,si,ii,1);
         }
         grid.appendChild(mark);
@@ -208,7 +262,7 @@ function render(){
       if(editMode){
         const addBtn = document.createElement("button");
         addBtn.className = "add"; addBtn.textContent = "＋ 항목 추가";
-        addBtn.onclick = ()=>{ state.players[pi].sections[si].items.push({label:"새 항목",count:0}); save(); render(); };
+        addBtn.onclick = ()=>{ sec.items.push({icon:"⭐", label:"새 항목", color:"#3a6b5e", count:0}); save(); render(); };
         grid.appendChild(addBtn);
       }
 
@@ -222,7 +276,6 @@ function render(){
   fitColumns();
 }
 
-// 각 플레이어 칸을 세로 높이에 맞춰 통째로 확대/축소 → 항상 한 화면에
 function fitColumns(){
   document.querySelectorAll(".col").forEach(col=>{
     const fit = col.querySelector(".fit");
@@ -255,13 +308,13 @@ function toggleEdit(){
   document.body.classList.toggle("edit", editMode);
   document.getElementById("editBtn").classList.toggle("on", editMode);
   document.getElementById("hint").textContent = editMode
-    ? "편집 모드: 이름 수정 / ✕ 삭제 / ＋ 항목 추가 · 끝나면 ✎ 편집 다시 누르기"
-    : "마크를 터치하면 +1 · 화면 높이에 맞춰 자동으로 한 화면에 표시됩니다";
+    ? "편집: 왼쪽 칸=아이콘(이모지 또는 AF 같은 코드), 오른쪽 칸=이름 · ✕ 삭제 / ＋ 추가 · 끝나면 ✎ 다시 누르기"
+    : "아이콘을 터치하면 +1 · 편집 모드에서 아이콘·이름 수정 가능";
   render();
 }
 
 function resetAll(){
-  if(!confirm("두 플레이어의 모든 점수를 0으로 초기화할까요?\n(항목 이름은 유지됩니다)")) return;
+  if(!confirm("두 플레이어의 모든 점수를 0으로 초기화할까요?\n(아이콘·이름은 유지됩니다)")) return;
   state.players.forEach(p=>p.sections.forEach(s=>s.items.forEach(i=>i.count=0)));
   save(); render();
 }
