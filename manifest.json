@@ -1,0 +1,13 @@
+{
+  "name": "아크노바 점수판 1:1",
+  "short_name": "아크노바 점수판",
+  "start_url": ".",
+  "display": "standalone",
+  "orientation": "landscape",
+  "background_color": "#0e2722",
+  "theme_color": "#0e2722",
+  "icons": [
+    { "src": "icon-180.png", "sizes": "180x180", "type": "image/png" },
+    { "src": "icon-512.png", "sizes": "512x512", "type": "image/png" }
+  ]
+}
