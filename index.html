@@ -138,6 +138,7 @@
 <script>
 const KEY = "arknova_scoreboard_v3";
 const OLD_KEY = "arknova_scoreboard_v2";
+const DEFAULTS_VERSION = 2;   // 아이콘 기본값이 바뀔 때마다 +1 (점수는 유지, 아이콘만 갱신)
 let editMode = false;
 
 function defaultPlayer(name){
@@ -154,7 +155,7 @@ function defaultPlayer(name){
       {icon:"🦎", label:"파충류",   color:"#4f9e57", count:0},
       {icon:"🐸", label:"양서류",   color:"#7bb33a", count:0},
       {icon:"🐟", label:"어류",     color:"#3f9ec0", count:0},
-      {icon:"🕷️", label:"무척추동물", color:"#c77fd0", count:0},
+      {icon:"🐙", label:"무척추동물", color:"#c77fd0", count:0},
       {icon:"🐻", label:"곰",       color:"#9c6b3f", count:0},
       {icon:"🐵", label:"영장류",   color:"#d99a3a", count:0},
       {icon:"🦁", label:"맹수",     color:"#d96f3a", count:0},
@@ -169,24 +170,30 @@ function defaultPlayer(name){
 }
 
 function loadKey(k){ try{ return JSON.parse(localStorage.getItem(k)); }catch(e){ return null; } }
-function save(){ localStorage.setItem(KEY, JSON.stringify(state)); }
+function save(){ state._dv = DEFAULTS_VERSION; localStorage.setItem(KEY, JSON.stringify(state)); }
 
-// v3 우선, 없으면 v2 점수를 위치 기준으로 이관
+// 저장된 데이터에서 점수·이름·추가항목만 가져오고, 아이콘/색은 항상 최신 기본값을 사용
 function init(){
   const cur = loadKey(KEY);
-  if(cur && cur.players) return cur;
-  const fresh = { players:[ defaultPlayer("플레이어 1"), defaultPlayer("플레이어 2") ] };
-  const old = loadKey(OLD_KEY);
-  if(old && old.players){
+  // 아이콘 기본값 버전이 동일하면 저장본 그대로 사용
+  if(cur && cur.players && cur._dv === DEFAULTS_VERSION) return cur;
+  const fresh = { _dv:DEFAULTS_VERSION, players:[ defaultPlayer("플레이어 1"), defaultPlayer("플레이어 2") ] };
+  const src = (cur && cur.players) ? cur : loadKey(OLD_KEY);
+  if(src && src.players){
     fresh.players.forEach((p,pi)=>{
-      const op = old.players[pi]; if(!op) return;
+      const op = src.players[pi]; if(!op) return;
       if(op.name) p.name = op.name;
       p.sections.forEach((sec,si)=>{
         const os = op.sections && op.sections[si]; if(!os) return;
+        // 기본 항목: 점수만 보존 (아이콘/색/이름은 새 기본값)
         sec.items.forEach((it,ii)=>{
           const oi = os.items && os.items[ii];
           if(oi && typeof oi.count === "number") it.count = oi.count;
         });
+        // 사용자가 직접 추가했던 항목(기본 개수 초과분)은 그대로 유지
+        if(os.items && os.items.length > sec.items.length){
+          for(let k=sec.items.length; k<os.items.length; k++) sec.items.push(os.items[k]);
+        }
       });
     });
   }
@@ -194,6 +201,7 @@ function init(){
 }
 
 let state = init();
+save();   // 갱신된 기본값 버전을 즉시 저장해 다음 로드부터 안정
 
 function render(){
   const board = document.getElementById("board");
