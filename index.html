@@ -52,6 +52,7 @@
   header .audio{position:absolute; left:12px; top:50%; transform:translateY(-50%); display:flex; align-items:center; gap:8px;}
   header .audio input[type=range]{width:80px; accent-color:var(--p1); cursor:pointer;}
   header .audio select{background:#0e463a; color:var(--txt); border:1px solid #2a9e7e; padding:6px 6px; border-radius:8px; font-size:13px; cursor:pointer; max-width:118px;}
+  header .audio .volico{font-size:14px; opacity:.85;}
 
   .board{flex:1; display:flex; min-height:0; position:relative; z-index:1;}
   .col{
@@ -137,14 +138,14 @@
 <body>
 <header>
   <div class="audio">
-    <button id="bgmBtn" onclick="toggleBgm()">🎵 BGM</button>
     <select id="bgmStyle" onchange="setStyle(this.value)" title="BGM 스타일">
-      <option value="music">🎴 오르골</option>
+      <option value="piano">🎹 피아노</option>
       <option value="nature">🐦 자연의 소리</option>
       <option value="forest">🌿 숲속 아침</option>
       <option value="deep">🌙 깊은 명상</option>
     </select>
-    <input id="vol" type="range" min="0" max="100" value="50" oninput="setVol(this.value)" title="음량">
+    <span class="volico">🔊</span>
+    <input id="vol" type="range" min="0" max="100" value="50" oninput="setVol(this.value)" title="음량 (0이면 무음)">
   </div>
   <h1>🦁 아크노바 점수판 · 1:1 · ver. 가로모드</h1>
   <div class="tools">
@@ -323,7 +324,9 @@ function fitColumns(){
 
 function changeCount(pi,si,ii,delta){
   const it = state.players[pi].sections[si].items[ii];
+  const prev = it.count;
   it.count = Math.max(0, it.count + delta);
+  if(it.count !== prev) playClick(delta>0);   // 실제로 바뀔 때만 '똑'
   save();
   render();
   if(delta>0){
@@ -352,7 +355,7 @@ function escHtml(s){ return (s+"").replace(/[&<>]/g, c=>({"&":"&amp;","<":"&lt;"
 function escAttr(s){ return (s+"").replace(/"/g,"&quot;"); }
 
 /* ===== 잔잔한 생성형 BGM (Web Audio · 외부 음원/저작권 없음) ===== */
-let actx=null, master=null, padGain=null, bgmOn=false, bgmTimer=null, beat=0;
+let actx=null, master=null, padGain=null, sfxGain=null, started=false, bgmTimer=null, beat=0;
 const activeNodes = new Set();
 let volume = parseFloat(localStorage.getItem("bgm_vol"));
 if(isNaN(volume)) volume = 0.5;
@@ -365,16 +368,19 @@ const PAD_CHORDS = [
   [174.61,220.00,261.63], // F
   [196.00,246.94,293.66], // G
 ];
-// C 메이저 펜타토닉 — 어디에 얹어도 부드러운 오르골 음
+// C 메이저 펜타토닉
 const MELODY = [523.25,587.33,659.25,783.99,880.00,1046.50];
+// 피아노용 음 (낮은~중간 음역의 펜타토닉 — 차분함)
+const PIANO_NOTES = [261.63,293.66,329.63,392.00,440.00,523.25,587.33];
 
 // 스타일별 구성 (어떤 사운드 생성기를 쓸지)
 const STYLES = {
-  music:  { pad:true,  melody:true,  drone:false, birds:false, water:false, step:2000, melodyProb:0.55, padDur:16.5 },
-  nature: { pad:false, melody:false, drone:true,  birds:true,  water:true,  step:1400, birdProb:0.6,  droneLevel:0.045 },
-  forest: { pad:true,  melody:true,  drone:false, birds:true,  water:true,  step:2200, melodyProb:0.35, birdProb:0.45, padDur:18.5 },
-  deep:   { pad:true,  melody:false, drone:true,  birds:false, water:false, step:4000, padDur:33, droneLevel:0.06 },
+  piano:  { piano:true,  step:3500, pianoProb:0.45 },                                  // 피아노 · 아주 드물게
+  nature: { drone:true,  birds:true, water:true, step:1400, birdProb:0.6,  droneLevel:0.045 },
+  forest: { piano:true,  birds:true, water:true, step:2600, pianoProb:0.30, birdProb:0.40 },
+  deep:   { pad:true,    drone:true, step:4000, padDur:33, droneLevel:0.06 },
 };
+if(!STYLES[style]) style = "piano";
 
 function ensureAudio(){
   if(actx) return;
@@ -385,6 +391,40 @@ function ensureAudio(){
   padGain = actx.createGain(); padGain.gain.value=0.9;
   master.connect(lp); lp.connect(actx.destination);
   padGain.connect(master);
+  // 효과음(똑)은 BGM 음량과 별개로 출력
+  sfxGain = actx.createGain(); sfxGain.gain.value=0.5; sfxGain.connect(actx.destination);
+}
+
+// 버튼 누름 효과음: 아주 짧은 '똑' (올릴 때 높게, 내릴 때 낮게)
+function playClick(up){
+  ensureAudio();
+  if(actx.state==="suspended") actx.resume();
+  const t=actx.currentTime;
+  const o=actx.createOscillator(); o.type="triangle";
+  o.frequency.setValueAtTime(up?1000:560, t);
+  o.frequency.exponentialRampToValueAtTime(up?620:360, t+0.05);
+  const g=actx.createGain();
+  g.gain.setValueAtTime(0.0001, t);
+  g.gain.exponentialRampToValueAtTime(0.3, t+0.004);
+  g.gain.exponentialRampToValueAtTime(0.0001, t+0.09);
+  o.connect(g); g.connect(sfxGain);
+  o.start(t); o.stop(t+0.1);
+}
+
+// 피아노풍 음: 빠른 어택 + 긴 감쇠, 약한 옥타브 배음
+function playPiano(f){
+  const t=actx.currentTime;
+  const g=actx.createGain(); g.connect(master);
+  [[1,"triangle",1.0],[2,"sine",0.22]].forEach(([mult,type,lvl])=>{
+    const o=actx.createOscillator(); o.type=type; o.frequency.value=f*mult;
+    const og=actx.createGain(); og.gain.value=lvl;
+    o.connect(og); og.connect(g);
+    o.start(t); o.stop(t+3.2);
+    activeNodes.add(o); o.onended=()=>activeNodes.delete(o);
+  });
+  g.gain.setValueAtTime(0.0001, t);
+  g.gain.exponentialRampToValueAtTime(0.16, t+0.012);
+  g.gain.exponentialRampToValueAtTime(0.0001, t+3.0);
 }
 function gainFromVol(){ return volume*0.30; }            // 배경음 상한
 function applyVolume(ramp){
@@ -392,7 +432,7 @@ function applyVolume(ramp){
   const t=actx.currentTime;
   master.gain.cancelScheduledValues(t);
   master.gain.setValueAtTime(Math.max(master.gain.value,0.0001), t);
-  master.gain.linearRampToValueAtTime(bgmOn ? gainFromVol() : 0.0001, t+(ramp||0));
+  master.gain.linearRampToValueAtTime(started ? gainFromVol() : 0.0001, t+(ramp||0));
 }
 function playPad(freqs, dur){
   const t=actx.currentTime;
@@ -500,16 +540,17 @@ function stopDrone(){
 }
 
 function tick(){
-  if(!bgmOn) return;
-  const s=STYLES[style] || STYLES.music;
+  if(!started) return;
+  const s=STYLES[style] || STYLES.piano;
   if(s.pad && beat % 8 === 0) playPad(PAD_CHORDS[(beat/8)%PAD_CHORDS.length], s.padDur||16.5);
   if(s.melody && Math.random() < (s.melodyProb||0.5)) playNote(MELODY[Math.floor(Math.random()*MELODY.length)]);
+  if(s.piano && Math.random() < (s.pianoProb||0.4)) playPiano(PIANO_NOTES[Math.floor(Math.random()*PIANO_NOTES.length)]);
   if(s.birds && Math.random() < (s.birdProb||0.5)) birdCluster();
   beat++;
   bgmTimer=setTimeout(tick, s.step||2000);
 }
 function startGenerators(){
-  const s=STYLES[style] || STYLES.music;
+  const s=STYLES[style] || STYLES.piano;
   if(s.water) startWater();
   if(s.drone) startDrone(s.droneLevel);
   beat=0; tick();
@@ -517,47 +558,33 @@ function startGenerators(){
 function stopGenerators(){
   if(bgmTimer){ clearTimeout(bgmTimer); bgmTimer=null; }
   stopWater(); stopDrone();
+  setTimeout(()=>{ activeNodes.forEach(o=>{try{o.stop();}catch(e){}}); activeNodes.clear(); }, 50);
 }
-function startBgm(){
+function startAudio(){
+  if(started) return;
   ensureAudio();
   if(actx.state==="suspended") actx.resume();
-  bgmOn=true;
+  started=true;
   applyVolume(1.5);
   startGenerators();
-  updateBgmUi();
-  localStorage.setItem("bgm_on","1");
 }
-function stopBgm(){
-  bgmOn=false;
-  stopGenerators();
-  applyVolume(0.6);
-  setTimeout(()=>{ activeNodes.forEach(o=>{try{o.stop();}catch(e){}}); activeNodes.clear(); }, 700);
-  updateBgmUi();
-  localStorage.setItem("bgm_on","0");
-}
-function toggleBgm(){ bgmOn ? stopBgm() : startBgm(); }
 function setStyle(v){
+  if(!STYLES[v]) return;
   style=v; localStorage.setItem("bgm_style", v);
-  if(bgmOn){ stopGenerators(); startGenerators(); }
+  if(started){ stopGenerators(); startGenerators(); }
 }
 function setVol(v){
   volume = Math.max(0, Math.min(1, v/100));
   localStorage.setItem("bgm_vol", volume);
-  if(bgmOn) applyVolume(0.2);
-}
-function updateBgmUi(){
-  const b=document.getElementById("bgmBtn");
-  if(b){ b.classList.toggle("on", bgmOn); b.textContent = bgmOn ? "🎵 BGM 켜짐" : "🎵 BGM"; }
+  if(started) applyVolume(0.2);
 }
 (function initAudioUi(){
+  if(!STYLES[style]) style="piano";
   const vEl=document.getElementById("vol"); if(vEl) vEl.value=Math.round(volume*100);
   const sEl=document.getElementById("bgmStyle"); if(sEl) sEl.value=style;
-  updateBgmUi();
-  // 이전에 켜둔 상태였다면, 브라우저 정책상 첫 터치 때 자동 재생
-  if(localStorage.getItem("bgm_on")==="1"){
-    const onFirst=()=>{ startBgm(); window.removeEventListener("pointerdown", onFirst); };
-    window.addEventListener("pointerdown", onFirst, {once:true});
-  }
+  // 브라우저 자동재생 정책상, 화면을 처음 터치/클릭할 때 BGM 시작
+  const onFirst=()=>{ startAudio(); window.removeEventListener("pointerdown", onFirst); };
+  window.addEventListener("pointerdown", onFirst, {once:true});
 })();
 
 window.addEventListener("resize", fitColumns);
