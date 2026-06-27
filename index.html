@@ -41,6 +41,8 @@
   }
   header button:hover{background:#256356;}
   header button.on{background:var(--p1); border-color:var(--p1); color:#1a1208; font-weight:700;}
+  header .audio{position:absolute; left:12px; top:50%; transform:translateY(-50%); display:flex; align-items:center; gap:8px;}
+  header .audio input[type=range]{width:88px; accent-color:var(--p1); cursor:pointer;}
 
   .board{flex:1; display:flex; min-height:0;}
   .col{
@@ -125,6 +127,10 @@
 </head>
 <body>
 <header>
+  <div class="audio">
+    <button id="bgmBtn" onclick="toggleBgm()">🎵 BGM</button>
+    <input id="vol" type="range" min="0" max="100" value="50" oninput="setVol(this.value)" title="음량">
+  </div>
   <h1>🦁 아크노바 점수판 · 1:1 · ver. 가로모드</h1>
   <div class="tools">
     <button id="editBtn" onclick="toggleEdit()">✎ 편집</button>
@@ -329,6 +335,109 @@ function resetAll(){
 
 function escHtml(s){ return (s+"").replace(/[&<>]/g, c=>({"&":"&amp;","<":"&lt;",">":"&gt;"}[c])); }
 function escAttr(s){ return (s+"").replace(/"/g,"&quot;"); }
+
+/* ===== 잔잔한 생성형 BGM (Web Audio · 외부 음원/저작권 없음) ===== */
+let actx=null, master=null, padGain=null, bgmOn=false, bgmTimer=null, beat=0;
+const activeNodes = new Set();
+let volume = parseFloat(localStorage.getItem("bgm_vol"));
+if(isNaN(volume)) volume = 0.5;
+
+// I–vi–IV–V 느낌의 따뜻한 패드 화음
+const PAD_CHORDS = [
+  [261.63,329.63,392.00], // C
+  [220.00,261.63,329.63], // Am
+  [174.61,220.00,261.63], // F
+  [196.00,246.94,293.66], // G
+];
+// C 메이저 펜타토닉 — 어디에 얹어도 부드러운 오르골 음
+const MELODY = [523.25,587.33,659.25,783.99,880.00,1046.50];
+
+function ensureAudio(){
+  if(actx) return;
+  const AC = window.AudioContext || window.webkitAudioContext;
+  actx = new AC();
+  master = actx.createGain(); master.gain.value = 0.0001;
+  const lp = actx.createBiquadFilter(); lp.type="lowpass"; lp.frequency.value=2200; lp.Q.value=0.3;
+  padGain = actx.createGain(); padGain.gain.value=0.9;
+  master.connect(lp); lp.connect(actx.destination);
+  padGain.connect(master);
+}
+function gainFromVol(){ return volume*0.30; }            // 배경음 상한
+function applyVolume(ramp){
+  if(!master) return;
+  const t=actx.currentTime;
+  master.gain.cancelScheduledValues(t);
+  master.gain.setValueAtTime(Math.max(master.gain.value,0.0001), t);
+  master.gain.linearRampToValueAtTime(bgmOn ? gainFromVol() : 0.0001, t+(ramp||0));
+}
+function playPad(freqs, dur){
+  const t=actx.currentTime;
+  freqs.forEach(f=>{
+    const o=actx.createOscillator(); o.type="sine"; o.frequency.value=f;
+    const g=actx.createGain(); g.gain.value=0;
+    o.connect(g); g.connect(padGain);
+    g.gain.setValueAtTime(0, t);
+    g.gain.linearRampToValueAtTime(0.12, t+3);
+    g.gain.setValueAtTime(0.12, t+dur-3);
+    g.gain.linearRampToValueAtTime(0, t+dur);
+    o.start(t); o.stop(t+dur+0.1);
+    activeNodes.add(o); o.onended=()=>activeNodes.delete(o);
+  });
+}
+function playNote(f){
+  const t=actx.currentTime;
+  const o=actx.createOscillator(); o.type="triangle"; o.frequency.value=f;
+  const g=actx.createGain();
+  o.connect(g); g.connect(master);
+  g.gain.setValueAtTime(0.0001, t);
+  g.gain.exponentialRampToValueAtTime(0.13, t+0.03);
+  g.gain.exponentialRampToValueAtTime(0.0001, t+2.6);
+  o.start(t); o.stop(t+2.7);
+  activeNodes.add(o); o.onended=()=>activeNodes.delete(o);
+}
+function tick(){
+  if(!bgmOn) return;
+  if(beat % 8 === 0) playPad(PAD_CHORDS[(beat/8) % PAD_CHORDS.length], 16.5);
+  if(Math.random() < 0.55) playNote(MELODY[Math.floor(Math.random()*MELODY.length)]);
+  beat++;
+  bgmTimer = setTimeout(tick, 2000);
+}
+function startBgm(){
+  ensureAudio();
+  if(actx.state==="suspended") actx.resume();
+  bgmOn=true; beat=0;
+  applyVolume(1.5);
+  tick();
+  updateBgmUi();
+  localStorage.setItem("bgm_on","1");
+}
+function stopBgm(){
+  bgmOn=false;
+  if(bgmTimer){ clearTimeout(bgmTimer); bgmTimer=null; }
+  applyVolume(0.6);
+  setTimeout(()=>{ activeNodes.forEach(o=>{try{o.stop();}catch(e){}}); activeNodes.clear(); }, 700);
+  updateBgmUi();
+  localStorage.setItem("bgm_on","0");
+}
+function toggleBgm(){ bgmOn ? stopBgm() : startBgm(); }
+function setVol(v){
+  volume = Math.max(0, Math.min(1, v/100));
+  localStorage.setItem("bgm_vol", volume);
+  if(bgmOn) applyVolume(0.2);
+}
+function updateBgmUi(){
+  const b=document.getElementById("bgmBtn");
+  if(b){ b.classList.toggle("on", bgmOn); b.textContent = bgmOn ? "🎵 BGM 켜짐" : "🎵 BGM"; }
+}
+(function initAudioUi(){
+  const vEl=document.getElementById("vol"); if(vEl) vEl.value=Math.round(volume*100);
+  updateBgmUi();
+  // 이전에 켜둔 상태였다면, 브라우저 정책상 첫 터치 때 자동 재생
+  if(localStorage.getItem("bgm_on")==="1"){
+    const onFirst=()=>{ startBgm(); window.removeEventListener("pointerdown", onFirst); };
+    window.addEventListener("pointerdown", onFirst, {once:true});
+  }
+})();
 
 window.addEventListener("resize", fitColumns);
 window.addEventListener("orientationchange", ()=> setTimeout(fitColumns, 300));
