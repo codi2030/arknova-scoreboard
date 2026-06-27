@@ -21,17 +21,25 @@
   *{box-sizing:border-box; -webkit-tap-highlight-color:transparent;}
   html,body{margin:0; height:100%;}
   body{
-    background:var(--bg); color:var(--txt);
+    background:
+      radial-gradient(125% 80% at 50% -12%, #2a8f6e 0%, rgba(42,143,110,0) 55%),
+      linear-gradient(165deg, #114438 0%, #0a221c 72%);
+    color:var(--txt);
     font-family:"Malgun Gothic","맑은 고딕","Apple SD Gothic Neo",sans-serif;
-    display:flex; flex-direction:column;
+    display:flex; flex-direction:column; position:relative;
     height:100vh; height:100dvh; overflow:hidden;
+  }
+  /* 아크노바 느낌의 옅은 육각형 패턴 */
+  body::before{
+    content:""; position:fixed; inset:0; z-index:0; pointer-events:none;
+    background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='28' height='49' viewBox='0 0 28 49'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%2367d8b1' fill-opacity='0.05'%3E%3Cpath d='M13.99 9.25l13 7.5v15l-13 7.5L1 31.75v-15l12.99-7.5zM3 17.9v12.7l10.99 6.34 11-6.35V17.9l-11-6.34L3 17.9zM0 15l12.98-7.5V0h-2v6.35L0 12.69v2.3zm0 18.5L12.98 41v8h-2v-6.85L0 35.81v-2.3zM15 0v7.5L27.99 15H28v-2.31h-.01L17 6.35V0h-2zm0 49v-8l12.99-7.5H28v2.31h-.01L17 42.15V49h-2z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E");
   }
 
   header{
     display:flex; align-items:center; justify-content:center; gap:14px;
     padding:calc(4px + env(safe-area-inset-top)) 14px 4px;
-    background:linear-gradient(#15463a,#0e2c25);
-    border-bottom:2px solid var(--line); position:relative; flex:none;
+    background:linear-gradient(90deg,#177a5a,#0e8f86);
+    border-bottom:2px solid #2a9e7e; position:relative; z-index:2; flex:none;
   }
   header h1{font-size:17px; margin:0; letter-spacing:.5px;}
   header .tools{position:absolute; right:12px; top:50%; transform:translateY(-50%); display:flex; gap:6px;}
@@ -42,15 +50,16 @@
   header button:hover{background:#256356;}
   header button.on{background:var(--p1); border-color:var(--p1); color:#1a1208; font-weight:700;}
   header .audio{position:absolute; left:12px; top:50%; transform:translateY(-50%); display:flex; align-items:center; gap:8px;}
-  header .audio input[type=range]{width:88px; accent-color:var(--p1); cursor:pointer;}
+  header .audio input[type=range]{width:80px; accent-color:var(--p1); cursor:pointer;}
+  header .audio select{background:#0e463a; color:var(--txt); border:1px solid #2a9e7e; padding:6px 6px; border-radius:8px; font-size:13px; cursor:pointer; max-width:118px;}
 
-  .board{flex:1; display:flex; min-height:0;}
+  .board{flex:1; display:flex; min-height:0; position:relative; z-index:1;}
   .col{
     flex:1 1 50%; min-width:0; min-height:0; position:relative; overflow:hidden;
     padding:8px 12px;
   }
-  .col.p1{background:var(--panel); padding-left:calc(12px + env(safe-area-inset-left));}
-  .col.p2{background:var(--panel2); border-left:3px solid var(--line); padding-right:calc(12px + env(safe-area-inset-right));}
+  .col.p1{background:rgba(18,58,49,0.78); padding-left:calc(12px + env(safe-area-inset-left));}
+  .col.p2{background:rgba(13,46,38,0.78); border-left:3px solid var(--line); padding-right:calc(12px + env(safe-area-inset-right));}
   .fit{transform-origin:top left; width:100%;}
 
   .name-row{display:flex; align-items:center; gap:10px; margin-bottom:6px;}
@@ -129,6 +138,12 @@
 <header>
   <div class="audio">
     <button id="bgmBtn" onclick="toggleBgm()">🎵 BGM</button>
+    <select id="bgmStyle" onchange="setStyle(this.value)" title="BGM 스타일">
+      <option value="music">🎴 오르골</option>
+      <option value="nature">🐦 자연의 소리</option>
+      <option value="forest">🌿 숲속 아침</option>
+      <option value="deep">🌙 깊은 명상</option>
+    </select>
     <input id="vol" type="range" min="0" max="100" value="50" oninput="setVol(this.value)" title="음량">
   </div>
   <h1>🦁 아크노바 점수판 · 1:1 · ver. 가로모드</h1>
@@ -341,6 +356,7 @@ let actx=null, master=null, padGain=null, bgmOn=false, bgmTimer=null, beat=0;
 const activeNodes = new Set();
 let volume = parseFloat(localStorage.getItem("bgm_vol"));
 if(isNaN(volume)) volume = 0.5;
+let style = localStorage.getItem("bgm_style") || "music";
 
 // I–vi–IV–V 느낌의 따뜻한 패드 화음
 const PAD_CHORDS = [
@@ -351,6 +367,14 @@ const PAD_CHORDS = [
 ];
 // C 메이저 펜타토닉 — 어디에 얹어도 부드러운 오르골 음
 const MELODY = [523.25,587.33,659.25,783.99,880.00,1046.50];
+
+// 스타일별 구성 (어떤 사운드 생성기를 쓸지)
+const STYLES = {
+  music:  { pad:true,  melody:true,  drone:false, birds:false, water:false, step:2000, melodyProb:0.55, padDur:16.5 },
+  nature: { pad:false, melody:false, drone:true,  birds:true,  water:true,  step:1400, birdProb:0.6,  droneLevel:0.045 },
+  forest: { pad:true,  melody:true,  drone:false, birds:true,  water:true,  step:2200, melodyProb:0.35, birdProb:0.45, padDur:18.5 },
+  deep:   { pad:true,  melody:false, drone:true,  birds:false, water:false, step:4000, padDur:33, droneLevel:0.06 },
+};
 
 function ensureAudio(){
   if(actx) return;
@@ -395,31 +419,127 @@ function playNote(f){
   o.start(t); o.stop(t+2.7);
   activeNodes.add(o); o.onended=()=>activeNodes.delete(o);
 }
+// 새소리: 빠르게 떨리는 짧은 휘파람 묶음
+function chirp(t0){
+  const o=actx.createOscillator(); o.type="sine";
+  const g=actx.createGain();
+  o.connect(g); g.connect(master);
+  const base=1900+Math.random()*1700;
+  o.frequency.setValueAtTime(base, t0);
+  let t=t0; const n=2+Math.floor(Math.random()*3);
+  for(let i=0;i<n;i++){
+    const f=base*(0.75+Math.random()*0.6);
+    o.frequency.exponentialRampToValueAtTime(Math.max(300,f), t+0.06);
+    t+=0.06+Math.random()*0.05;
+  }
+  g.gain.setValueAtTime(0.0001, t0);
+  g.gain.exponentialRampToValueAtTime(0.05, t0+0.02);
+  g.gain.exponentialRampToValueAtTime(0.0001, t+0.06);
+  o.start(t0); o.stop(t+0.12);
+  activeNodes.add(o); o.onended=()=>activeNodes.delete(o);
+}
+function birdCluster(){
+  const t0=actx.currentTime + Math.random()*0.3;
+  const c=1+Math.floor(Math.random()*3);
+  for(let i=0;i<c;i++) chirp(t0 + i*(0.12+Math.random()*0.2));
+}
+
+// 시냇물: 대역 필터링한 노이즈
+let waterNodes=null;
+function startWater(){
+  if(waterNodes) return;
+  const buf=actx.createBuffer(1, actx.sampleRate*2, actx.sampleRate);
+  const d=buf.getChannelData(0);
+  for(let i=0;i<d.length;i++) d[i]=Math.random()*2-1;
+  const src=actx.createBufferSource(); src.buffer=buf; src.loop=true;
+  const bp=actx.createBiquadFilter(); bp.type="bandpass"; bp.frequency.value=850; bp.Q.value=0.5;
+  const lp=actx.createBiquadFilter(); lp.type="lowpass"; lp.frequency.value=1500;
+  const g=actx.createGain(); g.gain.value=0.0001;
+  src.connect(bp); bp.connect(lp); lp.connect(g); g.connect(master);
+  src.start();
+  g.gain.linearRampToValueAtTime(0.05, actx.currentTime+2);
+  const lfo=actx.createOscillator(); lfo.frequency.value=0.1;
+  const lfoG=actx.createGain(); lfoG.gain.value=0.02;
+  lfo.connect(lfoG); lfoG.connect(g.gain); lfo.start();
+  waterNodes={src,lfo,g};
+}
+function stopWater(){
+  if(!waterNodes) return;
+  const w=waterNodes; waterNodes=null;
+  const t=actx.currentTime;
+  w.g.gain.cancelScheduledValues(t);
+  w.g.gain.setValueAtTime(w.g.gain.value, t);
+  w.g.gain.linearRampToValueAtTime(0.0001, t+1);
+  setTimeout(()=>{ try{w.src.stop();}catch(e){} try{w.lfo.stop();}catch(e){} }, 1200);
+}
+
+// 드론: 천천히 진동하는 저음 패드
+let droneNodes=null;
+function startDrone(level){
+  if(droneNodes) return;
+  const freqs=[130.81,196.00,261.63];
+  const g=actx.createGain(); g.gain.value=0.0001; g.connect(master);
+  const oscs=freqs.map((f,i)=>{
+    const o=actx.createOscillator(); o.type="sine"; o.frequency.value=f; o.detune.value=(i-1)*4;
+    o.connect(g); o.start(); return o;
+  });
+  g.gain.linearRampToValueAtTime(level||0.05, actx.currentTime+4);
+  const lfo=actx.createOscillator(); lfo.frequency.value=0.05;
+  const lfoG=actx.createGain(); lfoG.gain.value=0.012;
+  lfo.connect(lfoG); lfoG.connect(g.gain); lfo.start();
+  droneNodes={oscs,g,lfo};
+}
+function stopDrone(){
+  if(!droneNodes) return;
+  const d=droneNodes; droneNodes=null;
+  const t=actx.currentTime;
+  d.g.gain.cancelScheduledValues(t);
+  d.g.gain.setValueAtTime(d.g.gain.value, t);
+  d.g.gain.linearRampToValueAtTime(0.0001, t+1.5);
+  setTimeout(()=>{ d.oscs.forEach(o=>{try{o.stop();}catch(e){}}); try{d.lfo.stop();}catch(e){} }, 1700);
+}
+
 function tick(){
   if(!bgmOn) return;
-  if(beat % 8 === 0) playPad(PAD_CHORDS[(beat/8) % PAD_CHORDS.length], 16.5);
-  if(Math.random() < 0.55) playNote(MELODY[Math.floor(Math.random()*MELODY.length)]);
+  const s=STYLES[style] || STYLES.music;
+  if(s.pad && beat % 8 === 0) playPad(PAD_CHORDS[(beat/8)%PAD_CHORDS.length], s.padDur||16.5);
+  if(s.melody && Math.random() < (s.melodyProb||0.5)) playNote(MELODY[Math.floor(Math.random()*MELODY.length)]);
+  if(s.birds && Math.random() < (s.birdProb||0.5)) birdCluster();
   beat++;
-  bgmTimer = setTimeout(tick, 2000);
+  bgmTimer=setTimeout(tick, s.step||2000);
+}
+function startGenerators(){
+  const s=STYLES[style] || STYLES.music;
+  if(s.water) startWater();
+  if(s.drone) startDrone(s.droneLevel);
+  beat=0; tick();
+}
+function stopGenerators(){
+  if(bgmTimer){ clearTimeout(bgmTimer); bgmTimer=null; }
+  stopWater(); stopDrone();
 }
 function startBgm(){
   ensureAudio();
   if(actx.state==="suspended") actx.resume();
-  bgmOn=true; beat=0;
+  bgmOn=true;
   applyVolume(1.5);
-  tick();
+  startGenerators();
   updateBgmUi();
   localStorage.setItem("bgm_on","1");
 }
 function stopBgm(){
   bgmOn=false;
-  if(bgmTimer){ clearTimeout(bgmTimer); bgmTimer=null; }
+  stopGenerators();
   applyVolume(0.6);
   setTimeout(()=>{ activeNodes.forEach(o=>{try{o.stop();}catch(e){}}); activeNodes.clear(); }, 700);
   updateBgmUi();
   localStorage.setItem("bgm_on","0");
 }
 function toggleBgm(){ bgmOn ? stopBgm() : startBgm(); }
+function setStyle(v){
+  style=v; localStorage.setItem("bgm_style", v);
+  if(bgmOn){ stopGenerators(); startGenerators(); }
+}
 function setVol(v){
   volume = Math.max(0, Math.min(1, v/100));
   localStorage.setItem("bgm_vol", volume);
@@ -431,6 +551,7 @@ function updateBgmUi(){
 }
 (function initAudioUi(){
   const vEl=document.getElementById("vol"); if(vEl) vEl.value=Math.round(volume*100);
+  const sEl=document.getElementById("bgmStyle"); if(sEl) sEl.value=style;
   updateBgmUi();
   // 이전에 켜둔 상태였다면, 브라우저 정책상 첫 터치 때 자동 재생
   if(localStorage.getItem("bgm_on")==="1"){
